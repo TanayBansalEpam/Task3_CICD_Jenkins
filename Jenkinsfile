@@ -55,5 +55,25 @@ pipeline {
                 '''
             }
         }
+        stage('Push') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'main' ) {
+                        sh '''
+                        docker tag nodemain:v1.0 tanaybansal/nodemain:v1.0
+                        docker login -u $DOCKER_USER -p $DOCKER_PASS
+                        docker push tanaybansal/nodemain:v1.0
+                        '''
+		   }
+                   else {
+		       sh '''
+		       docker tag nodedev:v1.0 tanaybansal/nodedev:v1.0
+                       docker login -u $DOCKER_USER -p $DOCKER_PASS
+                       docker push tanaybansal/nodedev:v1.0
+                       '''
+                   }
+               }
+           }
+       }
     }
 }
