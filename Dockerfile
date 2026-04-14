@@ -1,5 +1,15 @@
-FROM node:7.8.0
+FROM node:16
+
 WORKDIR /opt
-ADD . /opt
-RUN npm install
-ENTRYPOINT npm run start
+
+COPY package.json ./
+
+RUN npm install && npm install -g serve
+
+COPY . .
+
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["serve", "-s", "build", "-l", "3000"]

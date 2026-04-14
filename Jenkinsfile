@@ -20,6 +20,12 @@ pipeline {
             }
         }
 
+        stage('Lint Dockerfile') {
+            steps {
+                sh 'docker run --rm -i hadolint/hadolint < Dockerfile || true'
+            }
+        }
+
         stage('Build') {
             steps {
                 sh 'chmod +x scripts/build.sh'
@@ -37,6 +43,12 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t $IMAGE .'
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                sh 'docker run --rm aquasec/trivy image $IMAGE || true'
             }
         }
 
@@ -62,9 +74,7 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
 
-                        sh '''
-                        echo $PASS | docker login -u $USER --password-stdin
-                        '''
+                        sh 'echo $PASS | docker login -u $USER --password-stdin'
 
                         if (env.BRANCH_NAME == 'main') {
                             sh '''
@@ -82,7 +92,7 @@ pipeline {
             }
         }
 
-        stage('Trigger Deployment Pipeline') {
+        stage('Trigger Deployment') {
             steps {
                 script {
                     if (env.BRANCH_NAME == 'main') {
