@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:16'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     tools {
         nodejs 'NodeJS'
@@ -20,6 +25,14 @@ pipeline {
             }
         }
 
+        stage('Lint Dockerfile') {
+            steps {
+                sh '''
+                docker run --rm -i hadolint/hadolint < Dockerfile
+                '''
+            }
+        }
+
         stage('Build') {
             steps {
                 sh 'chmod +x scripts/build.sh'
@@ -37,6 +50,14 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t $IMAGE .'
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                sh '''
+                docker run --rm aquasec/trivy image $IMAGE
+                '''
             }
         }
 
@@ -82,7 +103,7 @@ pipeline {
             }
         }
 
-        stage('Trigger Deployment Pipeline') {
+        stage('Trigger Deployment') {
             steps {
                 script {
                     if (env.BRANCH_NAME == 'main') {
