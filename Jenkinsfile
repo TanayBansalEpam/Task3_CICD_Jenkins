@@ -1,6 +1,6 @@
 pipeline {
     agent any
-    
+
     tools {
         nodejs 'NodeJS'
     }
@@ -9,6 +9,7 @@ pipeline {
         PORT = "${env.BRANCH_NAME == 'main' ? '3000' : '3001'}"
         IMAGE = "${env.BRANCH_NAME == 'main' ? 'nodemain:v1.0' : 'nodedev:v1.0'}"
         CONTAINER = "${env.BRANCH_NAME == 'main' ? 'main-container' : 'dev-container'}"
+        DOCKER_REPO = "tanaybansal"
     }
 
     stages {
@@ -45,7 +46,7 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy Locally') {
             steps {
                 sh '''
                 docker run -d \
@@ -53,6 +54,43 @@ pipeline {
                 -p $PORT:3000 \
                 $IMAGE
                 '''
+            }
+        }
+
+        stage('Push Image to DockerHub') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+
+                        sh '''
+                        echo $PASS | docker login -u $USER --password-stdin
+                        '''
+
+                        if (env.BRANCH_NAME == 'main') {
+                            sh '''
+                            docker tag nodemain:v1.0 $DOCKER_REPO/nodemain:v1.0
+                            docker push $DOCKER_REPO/nodemain:v1.0
+                            '''
+                        } else {
+                            sh '''
+                            docker tag nodedev:v1.0 $DOCKER_REPO/nodedev:v1.0
+                            docker push $DOCKER_REPO/nodedev:v1.0
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Trigger Deployment Pipeline') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'main') {
+                        build job: 'Deploy_to_main'
+                    } else {
+                        build job: 'Deploy_to_dev'
+                    }
+                }
             }
         }
     }
