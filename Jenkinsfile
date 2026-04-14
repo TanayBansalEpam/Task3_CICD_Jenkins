@@ -9,6 +9,7 @@ pipeline {
         PORT = "${env.BRANCH_NAME == 'main' ? '3000' : '3001'}"
         IMAGE = "${env.BRANCH_NAME == 'main' ? 'nodemain:v1.0' : 'nodedev:v1.0'}"
         CONTAINER = "${env.BRANCH_NAME == 'main' ? 'main-container' : 'dev-container'}"
+        DOCKER_REPO = "tanaybansal"
     }
 
     stages {
@@ -45,7 +46,7 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy Locally') {
             steps {
                 sh '''
                 docker run -d \
@@ -55,25 +56,42 @@ pipeline {
                 '''
             }
         }
-        stage('Push') {
+
+        stage('Push Image to DockerHub') {
             steps {
                 script {
-                    if (env.BRANCH_NAME == 'main' ) {
+                    withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+
                         sh '''
-                        docker tag nodemain:v1.0 tanaybansal/nodemain:v1.0
-                        docker login -u $DOCKER_USER -p $DOCKER_PASS
-                        docker push tanaybansal/nodemain:v1.0
+                        echo $PASS | docker login -u $USER --password-stdin
                         '''
-		   }
-                   else {
-		       sh '''
-		       docker tag nodedev:v1.0 tanaybansal/nodedev:v1.0
-                       docker login -u $DOCKER_USER -p $DOCKER_PASS
-                       docker push tanaybansal/nodedev:v1.0
-                       '''
-                   }
-               }
-           }
-       }
+
+                        if (env.BRANCH_NAME == 'main') {
+                            sh '''
+                            docker tag nodemain:v1.0 $DOCKER_REPO/nodemain:v1.0
+                            docker push $DOCKER_REPO/nodemain:v1.0
+                            '''
+                        } else {
+                            sh '''
+                            docker tag nodedev:v1.0 $DOCKER_REPO/nodedev:v1.0
+                            docker push $DOCKER_REPO/nodedev:v1.0
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Trigger Deployment Pipeline') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'main') {
+                        build job: 'Deploy_to_main'
+                    } else {
+                        build job: 'Deploy_to_dev'
+                    }
+                }
+            }
+        }
     }
 }
