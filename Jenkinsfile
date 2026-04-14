@@ -1,5 +1,9 @@
 pipeline {
     agent any
+    
+    tools {
+        nodejs 'NodeJS'
+    }
 
     environment {
         PORT = "${env.BRANCH_NAME == 'main' ? '3000' : '3001'}"
